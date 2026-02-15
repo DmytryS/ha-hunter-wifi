@@ -71,6 +71,17 @@ async def async_setup_entry(
             for program in programs
         ]
     )
+    entities.append(
+        HunterActionButton(
+            hass,
+            entry,
+            device_name,
+            slug,
+            host,
+            "stop_all_zones",
+            zones=zones,
+        )
+    )
 
     async_add_entities(entities)
 
@@ -91,6 +102,7 @@ class HunterActionButton(ButtonEntity):
         action: str,
         zone: int | None = None,
         program: int | None = None,
+        zones: list[int] | None = None,
     ) -> None:
         """Initialize Hunter action button."""
         self.hass = hass
@@ -101,8 +113,13 @@ class HunterActionButton(ButtonEntity):
         self._action = action
         self._zone = zone
         self._program = program
+        self._zones = zones or []
 
-        if zone is not None:
+        if action == "stop_all_zones":
+            self._attr_unique_id = f"{action}_{config_entry.entry_id}"
+            self._attr_name = "Stop All Zones"
+            self._attr_suggested_object_id = f"{self._slug}_{action}"
+        elif zone is not None:
             self._attr_unique_id = f"{action}_{zone}_{config_entry.entry_id}"
             action_label = "Start" if action == "start_zone" else "Stop"
             self._attr_name = f"{action_label} Zone {zone}"
@@ -120,6 +137,10 @@ class HunterActionButton(ButtonEntity):
     async def async_press(self) -> None:
         """Trigger start/stop action via Hunter HTTP API."""
         session = async_get_clientsession(self.hass)
+        if self._action == "stop_all_zones":
+            await self._async_stop_all_zones(session)
+            return
+
         url = "unknown"
         try:
             url = self._build_url()
@@ -128,6 +149,17 @@ class HunterActionButton(ButtonEntity):
                     response.raise_for_status()
         except (aiohttp.ClientError, TimeoutError, ValueError):
             LOGGER.exception("Failed Hunter request for %s", url)
+
+    async def _async_stop_all_zones(self, session: aiohttp.ClientSession) -> None:
+        """Stop all configured zones one by one."""
+        for zone in self._zones:
+            url = f"http://{self._host}/api/stop/zone/{zone}"
+            try:
+                async with timeout(10):
+                    async with session.get(url) as response:
+                        response.raise_for_status()
+            except (aiohttp.ClientError, TimeoutError):
+                LOGGER.exception("Failed Hunter request for %s", url)
 
     def _build_url(self) -> str:
         """Build API URL for current action."""
