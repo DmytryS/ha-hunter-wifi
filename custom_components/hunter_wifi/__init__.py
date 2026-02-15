@@ -1,66 +1,70 @@
-"""EVSE Charger integration."""
+"""Hunter WiFi integration."""
 
-import logging
+from __future__ import annotations
 
-from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+
+    from homeassistant.config_entries import ConfigEntry
+    from homeassistant.core import HomeAssistant
 
 from .const import (
+    CONF_DEVICE_NAME,
     CONF_HOST,
+    CONF_PROGRAMS,
+    CONF_ZONES,
+    DEFAULT_DEVICE_NAME,
+    DEFAULT_ZONE_DURATION_MINUTES,
     DOMAIN,
 )
-from .coordinator import EVSECoordinator
-from .data import EvseEnergyStarData
 
-LOGGER = logging.getLogger(__name__)
-
-PLATFORMS = ["sensor", "select", "button", "number", "switch", "time"]
+PLATFORMS = ["button", "number"]
 
 
-async def async_setup_entry(
-    hass: HomeAssistant,
-    entry: EvseEnergyStarData,
-) -> bool:
-    """Define setup entry."""
-    host = entry.options.get(CONF_HOST, entry.data.get(CONF_HOST))
-    coordinator = EVSECoordinator(hass, host, entry)
+def _normalize_int_list(raw_values: Iterable[int] | None) -> list[int]:
+    """Normalize incoming config list of ids to sorted unique ints."""
+    if raw_values is None:
+        return []
+    return sorted({int(value) for value in raw_values})
 
-    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {
-        "coordinator": coordinator,
-        CONF_HOST: host,
-        "device_name_slug": coordinator.device_name_slug,
-    }
 
-    LOGGER.info(
-        "__init__.py → Створено coordinator для %s (%s), частота оновлення: %s сек",
-        coordinator.device_name,
-        host,
-        entry.options.get("update_rate", 10),
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Set up Hunter WiFi from config entry."""
+    device_name = entry.options.get(
+        CONF_DEVICE_NAME,
+        entry.data.get(CONF_DEVICE_NAME, DEFAULT_DEVICE_NAME),
+    )
+    host = entry.options.get(CONF_HOST, entry.data[CONF_HOST])
+    zones = _normalize_int_list(
+        entry.options.get(CONF_ZONES, entry.data.get(CONF_ZONES, []))
+    )
+    programs = _normalize_int_list(
+        entry.options.get(CONF_PROGRAMS, entry.data.get(CONF_PROGRAMS, []))
     )
 
-    await coordinator.async_config_entry_first_refresh()
+    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {
+        CONF_DEVICE_NAME: device_name,
+        CONF_HOST: host,
+        CONF_ZONES: zones,
+        CONF_PROGRAMS: programs,
+        "zone_durations": dict.fromkeys(zones, DEFAULT_ZONE_DURATION_MINUTES),
+    }
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-
-    entry.async_on_unload(entry.add_update_listener(update_listener))
-
+    entry.async_on_unload(entry.add_update_listener(_async_update_listener))
     return True
 
 
-async def async_unload_entry(
-    hass: HomeAssistant,
-    entry: ConfigEntry,
-) -> bool:
-    """Unload EVSE config entry."""
+async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Unload Hunter WiFi config entry."""
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
-
     if unload_ok:
-        hass.data[DOMAIN].pop(entry.entry_id)
-
+        hass.data[DOMAIN].pop(entry.entry_id, None)
     return unload_ok
 
 
-async def update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Reload EVSE config entry when options are updated."""
-    LOGGER.debug("update_listener → перезавантаження інтеграції через зміну опцій")
+async def _async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Reload integration when options are updated."""
     await hass.config_entries.async_reload(entry.entry_id)

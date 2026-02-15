@@ -1,17 +1,28 @@
 {
-  "title": "EVSE Charger",
-  "description": "Local integration with the charger via HTTP requests",
+  "title": "Hunter WiFi Irrigation",
   "config": {
+    "error": {
+      "invalid_ip": "Invalid IP address",
+      "select_at_least_one": "Select at least one zone or program"
+    },
     "step": {
       "user": {
-        "title": "Charger Parameters",
-        "description": "Enter IP address and credentials",
+        "title": "Hunter Controller",
+        "description": "Enter the controller IP and select zones/programs to expose in Home Assistant.",
         "data": {
           "device_name": "Device name",
-          "host": "Charger IP Address",
-          "username": "Username",
-          "password": "Password",
-          "device_type": "Device type"
+          "host": "Controller IP address",
+          "zone_1": "Zone 1",
+          "zone_2": "Zone 2",
+          "zone_3": "Zone 3",
+          "zone_4": "Zone 4",
+          "zone_5": "Zone 5",
+          "zone_6": "Zone 6",
+          "zone_7": "Zone 7",
+          "zone_8": "Zone 8",
+          "program_1": "Program 1",
+          "program_2": "Program 2",
+          "program_3": "Program 3"
         }
       }
     }
@@ -19,14 +30,22 @@
   "options": {
     "step": {
       "init": {
-        "title": "Update EVSE",
-        "description": "Update EVSE configuration",
+        "title": "Hunter WiFi Settings",
+        "description": "Update controller IP and exposed zones/programs.",
         "data": {
           "device_name": "Device name",
-          "host": "Charger IP Address",
-          "username": "Username",
-          "password": "Password",
-          "device_type": "Device type"
+          "host": "Controller IP address",
+          "zone_1": "Zone 1",
+          "zone_2": "Zone 2",
+          "zone_3": "Zone 3",
+          "zone_4": "Zone 4",
+          "zone_5": "Zone 5",
+          "zone_6": "Zone 6",
+          "zone_7": "Zone 7",
+          "zone_8": "Zone 8",
+          "program_1": "Program 1",
+          "program_2": "Program 2",
+          "program_3": "Program 3"
         }
       }
     }

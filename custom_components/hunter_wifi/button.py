@@ -1,18 +1,23 @@
-"""Button entity for EVSE Charger."""
+"""Button entities for Hunter WiFi."""
+
+from __future__ import annotations
 
 import logging
-from datetime import datetime
-from typing import Any
+from asyncio import timeout
+from typing import TYPE_CHECKING
 
+import aiohttp
 from homeassistant.components.button import ButtonEntity
-from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.util import slugify
 
-from .const import CONF_DEVICE_NAME, DOMAIN
-from .coordinator import EVSECoordinator
+from .const import CONF_DEVICE_NAME, CONF_HOST, CONF_PROGRAMS, CONF_ZONES, DOMAIN
+
+if TYPE_CHECKING:
+    from homeassistant.config_entries import ConfigEntry
+    from homeassistant.core import HomeAssistant
+    from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 LOGGER = logging.getLogger(__name__)
 
@@ -20,169 +25,134 @@ LOGGER = logging.getLogger(__name__)
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
-    """Define setup entry."""
-    coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
-    device_name_slug = hass.data[DOMAIN][entry.entry_id]["device_name_slug"]
+    """Set up Hunter buttons for configured zones and programs."""
+    entry_data = hass.data[DOMAIN][entry.entry_id]
+    device_name: str = entry_data[CONF_DEVICE_NAME]
+    host: str = entry_data[CONF_HOST]
+    zones: list[int] = entry_data[CONF_ZONES]
+    programs: list[int] = entry_data[CONF_PROGRAMS]
+    slug = slugify(device_name)
 
-    async_add_entities(
+    entities: list[HunterActionButton] = []
+    for zone in zones:
+        entities.append(
+            HunterActionButton(
+                hass,
+                entry,
+                device_name,
+                slug,
+                host,
+                "start_zone",
+                zone=zone,
+            )
+        )
+        entities.append(
+            HunterActionButton(
+                hass,
+                entry,
+                device_name,
+                slug,
+                host,
+                "stop_zone",
+                zone=zone,
+            )
+        )
+    entities.extend(
         [
-            SyncTimeButton(coordinator, entry, device_name_slug),
-            ChargeNowButton(coordinator, entry, device_name_slug),
+            HunterActionButton(
+                hass,
+                entry,
+                device_name,
+                slug,
+                host,
+                "start_program",
+                program=program,
+            )
+            for program in programs
         ]
     )
 
-
-class SyncTimeButton(CoordinatorEntity, ButtonEntity):
-    """Sync time button."""
-
-    def __init__(
-        self,
-        coordinator: EVSECoordinator,
-        config_entry: ConfigEntry,
-        slug: str,
-    ) -> None:
-        """Initialize."""
-        super().__init__(coordinator)
-        self.coordinator = coordinator
-        self.config_entry = config_entry
-        self._attr_translation_key = "hunter_wifi_time_get"
-        self._attr_unique_id = f"time_get_{config_entry.entry_id}"
-        self._attr_icon = "mdi:clock-check-outline"
-        self._attr_should_poll = False
-        self._attr_has_entity_name = True
-        self._attr_suggested_object_id = f"{slug}_{self._attr_translation_key}"
-
-    async def async_press(self) -> None:
-        """Press button."""
-        try:
-            raw_tz = self.coordinator.data.get("timeZone", 0)
-            try:
-                tz = int(float(str(raw_tz).strip()))
-            except Exception:
-                tz = 0
-                LOGGER.exception("button.py → invalid timeZone: '%s'", raw_tz)
-
-            local_ts = int(datetime.now().timestamp())  # noqa: DTZ005
-            system_time = local_ts + tz * 3600
-            LOGGER.debug("button.py → Synchronizing time: systemTime=%s", system_time)
-
-            session = async_get_clientsession(self.coordinator.hass)
-            await session.post(
-                f"http://{self.coordinator.host}/pageEvent",
-                data=f"systemTime={system_time}",
-                headers={"Content-Type": "application/x-www-form-urlencoded"},
-            )
-
-        except Exception:
-            LOGGER.exception("button.py → error synchronizing time")
-
-    @property
-    def available(self) -> bool:
-        """Return true if the button is available."""
-        return self.coordinator.last_update_success
-
-    @property
-    def device_info(self) -> dict[str, Any]:
-        """Return device info."""
-        return {
-            "identifiers": {(DOMAIN, self.config_entry.entry_id)},
-            "name": self.config_entry.data.get(CONF_DEVICE_NAME, "Eveus Pro"),
-            "manufacturer": "Energy Star",
-            "model": "EVSE",
-            "sw_version": self.coordinator.data.get("fwVersion"),
-        }
+    async_add_entities(entities)
 
 
-class ChargeNowButton(CoordinatorEntity, ButtonEntity):
-    """Charge now button."""
+class HunterActionButton(ButtonEntity):
+    """Stateless action button for Hunter API."""
+
+    _attr_should_poll = False
+    _attr_has_entity_name = True
 
     def __init__(
         self,
-        coordinator: EVSECoordinator,
+        hass: HomeAssistant,
         config_entry: ConfigEntry,
+        device_name: str,
         slug: str,
+        host: str,
+        action: str,
+        zone: int | None = None,
+        program: int | None = None,
     ) -> None:
-        """Initialize."""
-        super().__init__(coordinator)
-        self.coordinator = coordinator
+        """Initialize Hunter action button."""
+        self.hass = hass
         self.config_entry = config_entry
-        self._attr_translation_key = "hunter_wifi_start_now"
-        self._attr_unique_id = f"start_now_{config_entry.entry_id}"
-        self._attr_icon = "mdi:battery-charging-high"
-        self._attr_should_poll = False
-        self._attr_has_entity_name = True
-        self._attr_suggested_object_id = f"{slug}_{self._attr_translation_key}"
+        self._device_name = device_name
+        self._slug = slug
+        self._host = host
+        self._action = action
+        self._zone = zone
+        self._program = program
+
+        if zone is not None:
+            self._attr_unique_id = f"{action}_{zone}_{config_entry.entry_id}"
+            action_label = "Start" if action == "start_zone" else "Stop"
+            self._attr_name = f"{action_label} Zone {zone}"
+            self._attr_suggested_object_id = f"{self._slug}_{action}_{zone}"
+        else:
+            self._attr_unique_id = f"{action}_{program}_{config_entry.entry_id}"
+            self._attr_name = f"Start Program {program}"
+            self._attr_suggested_object_id = f"{self._slug}_{action}_{program}"
+
+        if action.startswith("start"):
+            self._attr_icon = "mdi:play-circle-outline"
+        else:
+            self._attr_icon = "mdi:stop-circle-outline"
 
     async def async_press(self) -> None:
-        """Press button."""
+        """Trigger start/stop action via Hunter HTTP API."""
+        session = async_get_clientsession(self.hass)
+        url = "unknown"
         try:
-            data = self.coordinator.data
-            tz_raw = data.get("timeZone", 0)
-            try:
-                tz = int(float(str(tz_raw).strip()))
-            except Exception:
-                tz = 0
-                LOGGER.exception("chargeNow → invalid timeZone: '%s'", tz_raw)
+            url = self._build_url()
+            async with timeout(10):
+                async with session.get(url) as response:
+                    response.raise_for_status()
+        except (aiohttp.ClientError, TimeoutError, ValueError):
+            LOGGER.exception("Failed Hunter request for %s", url)
 
-            start = data.get("startTime", "23:00")
-            stop = data.get("stopTime", "07:00")
-            session = async_get_clientsession(self.coordinator.hass)
+    def _build_url(self) -> str:
+        """Build API URL for current action."""
+        if self._zone is not None:
+            if self._action == "start_zone":
+                entry_data = self.hass.data[DOMAIN][self.config_entry.entry_id]
+                zone_durations: dict[int, int] = entry_data["zone_durations"]
+                duration = int(zone_durations.get(self._zone, 5))
+                return (
+                    f"http://{self._host}/api/start/zone/{self._zone}?time={duration}"
+                )
+            return f"http://{self._host}/api/stop/zone/{self._zone}"
 
-            await session.post(
-                f"http://{self.coordinator.host}/pageEvent",
-                data="oneCharge=0",
-                headers={"Content-Type": "application/x-www-form-urlencoded"},
-            )
-
-            await session.post(
-                f"http://{self.coordinator.host}/pageEvent",
-                data="evseEnabled=1",
-                headers={"Content-Type": "application/x-www-form-urlencoded"},
-            )
-
-            payload_timer = (
-                f"isAlarm=false&startTime={start}&stopTime={stop}&timeZone={tz}"
-            )
-            await session.post(
-                f"http://{self.coordinator.host}/timer",
-                data=payload_timer,
-                headers={"Content-Type": "application/x-www-form-urlencoded"},
-            )
-            LOGGER.debug("chargeNow → /timer: %s", payload_timer)
-
-            await session.post(
-                f"http://{self.coordinator.host}/pageEvent",
-                data="timeLimit=500000",
-                headers={"Content-Type": "application/x-www-form-urlencoded"},
-            )
-            await session.post(
-                f"http://{self.coordinator.host}/pageEvent",
-                data="energyLimit=10000",
-                headers={"Content-Type": "application/x-www-form-urlencoded"},
-            )
-            await session.post(
-                f"http://{self.coordinator.host}/pageEvent",
-                data="chargeNow=12",
-                headers={"Content-Type": "application/x-www-form-urlencoded"},
-            )
-
-            LOGGER.debug("chargeNow → Зарядка активована")
-
-        except Exception:
-            LOGGER.exception("chargeNow → error requesting")
+        if self._action == "start_program":
+            return f"http://{self._host}/api/start/program/{self._program}"
+        msg = f"Unsupported action requested: {self._action}"
+        raise ValueError(msg)
 
     @property
-    def available(self) -> bool:
-        """Return true if the button is available."""
-        return self.coordinator.last_update_success
-
-    @property
-    def device_info(self) -> dict[str, Any]:
-        """Return device info."""
-        return {
-            "identifiers": {(DOMAIN, self.config_entry.entry_id)},
-            "name": self.config_entry.data.get(CONF_DEVICE_NAME, "Eveus Pro"),
-            "manufacturer": "Energy Star",
-            "model": "EVSE",
-            "sw_version": self.coordinator.data.get("fwVersion"),
-        }
+    def device_info(self) -> DeviceInfo:
+        """Return parent device info."""
+        return DeviceInfo(
+            identifiers={(DOMAIN, self.config_entry.entry_id)},
+            name=self._device_name,
+            manufacturer="Hunter",
+            model="WiFi Controller",
+            configuration_url=f"http://{self._host}",
+        )

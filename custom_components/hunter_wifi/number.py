@@ -1,43 +1,26 @@
-"""Number entity for EVSE Charger."""
+"""Number entities for Hunter WiFi."""
 
-import logging
-from typing import Any
+from __future__ import annotations
 
-from homeassistant.components.number import NumberEntity
-from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from typing import TYPE_CHECKING
+
+from homeassistant.components.number import RestoreNumber
+from homeassistant.const import UnitOfTime
+from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.util import slugify
 
 from .const import (
     CONF_DEVICE_NAME,
+    CONF_HOST,
+    CONF_ZONES,
+    DEFAULT_ZONE_DURATION_MINUTES,
     DOMAIN,
 )
-from .coordinator import EVSECoordinator
 
-LOGGER = logging.getLogger(__name__)
-
-NUMBER_DEFINITIONS = [
-    {
-        "key": "currentSet",
-        "id": "hunter_wifi_current_limit",
-        "icon": "mdi:current-dc",
-        "min": 6,
-        "max": 32,
-        "step": 1,
-        "unit": "A",
-    },
-    {
-        "key": "aiVoltage",
-        "id": "hunter_wifi_voltage_adaptive",
-        "icon": "mdi:flash-outline",
-        "min": 180,
-        "max": 240,
-        "step": 1,
-        "unit": "V",
-    },
-]
+if TYPE_CHECKING:
+    from homeassistant.config_entries import ConfigEntry
+    from homeassistant.core import HomeAssistant
+    from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 
 async def async_setup_entry(
@@ -45,96 +28,81 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Define setup entry."""
-    coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
+    """Set up per-zone watering duration entities."""
+    entry_data = hass.data[DOMAIN][entry.entry_id]
+    device_name: str = entry_data[CONF_DEVICE_NAME]
+    host: str = entry_data[CONF_HOST]
+    zones: list[int] = entry_data[CONF_ZONES]
+    slug = slugify(device_name)
+    async_add_entities(
+        [
+            HunterZoneDurationNumber(hass, entry, device_name, slug, host, zone)
+            for zone in zones
+        ]
+    )
 
-    entities = [
-        EVSENumber(coordinator, entry, definition) for definition in NUMBER_DEFINITIONS
-    ]
-    async_add_entities(entities)
 
+class HunterZoneDurationNumber(RestoreNumber):
+    """Editable zone duration used for /start/zone time parameter."""
 
-class EVSENumber(CoordinatorEntity, NumberEntity):
-    """EVSE Number."""
+    _attr_has_entity_name = True
+    _attr_mode = "box"
+    _attr_native_unit_of_measurement = UnitOfTime.MINUTES
+    _attr_native_min_value = 1
+    _attr_native_max_value = 240
+    _attr_native_step = 1
+    _attr_icon = "mdi:timer-outline"
 
     def __init__(
         self,
-        coordinator: EVSECoordinator,
+        hass: HomeAssistant,
         config_entry: ConfigEntry,
-        config: dict[str, Any],
+        device_name: str,
+        slug: str,
+        host: str,
+        zone: int,
     ) -> None:
-        """Initialize."""
-        super().__init__(coordinator)
-        self.coordinator = coordinator
+        """Initialize zone duration entity."""
+        self.hass = hass
         self.config_entry = config_entry
-        self._host = coordinator.host
-        self._key = config["key"]
-        self._translation_key = config["id"]
-        self._config = config
-        self._attr_translation_key = self._translation_key
-        self._attr_icon = config["icon"]
-        self._attr_native_unit_of_measurement = config["unit"]
-        self._attr_native_step = config["step"]
-        self._attr_native_min_value = config["min"]
-        self._attr_unique_id = f"{self._translation_key}_{config_entry.entry_id}"
-        self._attr_has_entity_name = True
-        self._attr_suggested_object_id = (
-            f"{self.coordinator.device_name_slug}_{self._attr_translation_key}"
+        self._device_name = device_name
+        self._slug = slug
+        self._host = host
+        self._zone = zone
+        self._attr_name = f"Zone {zone} Duration"
+        self._attr_unique_id = f"zone_{zone}_duration_{config_entry.entry_id}"
+        self._attr_suggested_object_id = f"{self._slug}_zone_{zone}_duration"
+        self._attr_native_value = float(DEFAULT_ZONE_DURATION_MINUTES)
+
+    async def async_added_to_hass(self) -> None:
+        """Restore previous value if available."""
+        await super().async_added_to_hass()
+        if (last_number_data := await self.async_get_last_number_data()) is not None:
+            self._attr_native_value = last_number_data.native_value
+
+        self._update_runtime_duration()
+
+    async def async_set_native_value(self, value: float) -> None:
+        """Set zone watering duration in minutes."""
+        self._attr_native_value = value
+        self._update_runtime_duration()
+        self.async_write_ha_state()
+
+    def _update_runtime_duration(self) -> None:
+        """Sync the runtime zone duration map used by start buttons."""
+        entry_data = self.hass.data[DOMAIN][self.config_entry.entry_id]
+        zone_durations: dict[int, int] = entry_data["zone_durations"]
+        zone_durations[self._zone] = int(
+            self.native_value or DEFAULT_ZONE_DURATION_MINUTES
         )
 
     @property
-    def available(self) -> bool:
-        """Return true if the number is available."""
-        return self.coordinator.last_update_success
-
-    @property
-    def native_value(self) -> float | None:
-        """Return native value."""
-        value = self.coordinator.data.get(self._key)
-        return float(value) if value is not None else None
-
-    @property
-    def native_max_value(self) -> float:
-        """Return native max value."""
-        if self._key == "currentSet":
-            design_max = int(float(self.coordinator.data.get("curDesign", 32)))
-
-            return design_max
-        return self._config["max"]
-        LOGGER.debug("number.py → max: %s", self._config["max"])
-        return self._config["max"]
-
-    async def async_set_native_value(self, value: float) -> None:
-        """Set native value."""
-        if self._key == "currentSet":
-            value = int(value)
-        if self._key == "aiVoltage":
-            value = int(value)
-
-        payload = f"{self._key}={value}"
-        headers = {
-            "Content-Type": "application/x-www-form-urlencoded",
-            "pageEvent": self._key,
-        }
-
-        try:
-            session = async_get_clientsession(self.coordinator.hass)
-            await session.post(
-                f"http://{self._host}/pageEvent", data=payload, headers=headers
-            )
-
-            await self.coordinator.async_request_refresh()
-            self.async_write_ha_state()
-        except Exception:
-            LOGGER.exception("number.py → error writing %s = %s", self._key, value)
-
-    @property
-    def device_info(self) -> dict[str, Any]:
-        """Return device info."""
-        return {
-            "identifiers": {(DOMAIN, self.config_entry.entry_id)},
-            "name": self.config_entry.data.get(CONF_DEVICE_NAME, "Eveus Pro"),
-            "manufacturer": "Energy Star",
-            "model": "EVSE",
-            "sw_version": self.coordinator.data.get("fwVersion"),
-        }
+    def device_info(self) -> DeviceInfo:
+        """Return parent device info."""
+        return DeviceInfo(
+            identifiers={(DOMAIN, self.config_entry.entry_id)},
+            name=self._device_name,
+            manufacturer="Hunter",
+            model="WiFi Controller",
+            configuration_url=f"http://{self._host}",
+        )

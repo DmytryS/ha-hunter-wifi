@@ -1,21 +1,27 @@
 {
   "config": {
-    "title": "EVSE Energy Star",
+    "title": "Hunter WiFi Irrigation",
     "error": {
-      "required": "Обов'язкове поле",
-      "connection": "Помилка підключення",
-      "invalid_ip": "Неправильна IP-адреса"
+      "invalid_ip": "Неправильна IP-адреса",
+      "select_at_least_one": "Оберіть хоча б одну зону або програму"
     },
     "step": {
       "user": {
-        "title": "Підключення EVSE",
-        "description": "Введіть назву пристрою, IP-адресу, логін та пароль для підключення до зарядної станції.",
+        "title": "Контролер Hunter",
+        "description": "Вкажіть IP-адресу контролера та оберіть зони/програми для Home Assistant.",
         "data": {
-          "device_name": "Назва пристрою",
-          "host": "IP-адреса",
-          "username": "Ім’я користувача",
-          "password": "Пароль",
-          "device_type": "Тип пристрою"
+          "host": "IP-адреса контролера",
+          "zone_1": "Зона 1",
+          "zone_2": "Зона 2",
+          "zone_3": "Зона 3",
+          "zone_4": "Зона 4",
+          "zone_5": "Зона 5",
+          "zone_6": "Зона 6",
+          "zone_7": "Зона 7",
+          "zone_8": "Зона 8",
+          "program_1": "Програма 1",
+          "program_2": "Програма 2",
+          "program_3": "Програма 3"
         }
       }
     }
@@ -23,151 +29,22 @@
   "options": {
     "step": {
       "init": {
-        "title": "Оновлення EVSE",
-        "description": "Оновлення конфігурації зарядного пристрою",
+        "title": "Налаштування Hunter WiFi",
+        "description": "Оновіть IP-адресу контролера та обрані зони/програми.",
         "data": {
-          "device_name": "Назва пристрою",
-          "host": "IP-адреса",
-          "username": "Ім’я користувача",
-          "password": "Пароль",
-          "device_type": "Тип пристрою"
+          "host": "IP-адреса контролера",
+          "zone_1": "Зона 1",
+          "zone_2": "Зона 2",
+          "zone_3": "Зона 3",
+          "zone_4": "Зона 4",
+          "zone_5": "Зона 5",
+          "zone_6": "Зона 6",
+          "zone_7": "Зона 7",
+          "zone_8": "Зона 8",
+          "program_1": "Програма 1",
+          "program_2": "Програма 2",
+          "program_3": "Програма 3"
         }
-      }
-    }
-  },
-  "entity": {
-    "sensor": {
-      "hunter_wifi_status": {
-        "name": "Статус зарядки",
-        "state": {
-          "power_up": "Вмикання",
-          "self_test": "Тест",
-          "standby": "Спайк",
-          "car_connected": "Автомобіль підключений",
-          "charging_complete": "Заряд завершено",
-          "disabled": "Вимкнено",
-          "error": "Помилка",
-
-          "no_data": "Немає даних",
-          "charging": "Заряд",
-          "waiting": "Очікування",
-          "ready": "Готовий",
-          "delayed_start": "Відкладений старт",
-          "overcurrent": "Перевищення струму",
-          "overvoltage": "Перевищення напруги",
-          "leakage": "Витік",
-          "station_error": "Помилка станції",
-          "overtemperature": "Перевищення температури",
-          "locked": "Заблоковано",
-          "no_ground": "Немає заземлення",
-          "plug_overheat": "Перегрів вилки",
-          "undervoltage": "Низька напруга"
-        }
-      },
-      "hunter_wifi_current_set": {
-        "name": "Струм (встановлений)"
-      },
-      "hunter_wifi_current_phase_1": {
-        "name": "Струм фаза 1"
-      },
-      "hunter_wifi_voltage_phase_1": {
-        "name": "Напруга фаза 1"
-      },
-      "hunter_wifi_current_phase_2": {
-        "name": "Струм фаза 2"
-      },
-      "hunter_wifi_voltage_phase_2": {
-        "name": "Напруга фаза 2"
-      },
-      "hunter_wifi_current_phase_3": {
-        "name": "Струм фаза 3"
-      },
-      "hunter_wifi_voltage_phase_3": {
-        "name": "Напруга фаза 3"
-      },
-      "hunter_wifi_temperature_box": {
-        "name": "Темп. корпусу"
-      },
-      "hunter_wifi_temperature_socket": {
-        "name": "Темп. роз'єму"
-      },
-      "hunter_wifi_leakage": {
-        "name": "Витік"
-      },
-      "hunter_wifi_session_energy": {
-        "name": "Енергія сесії"
-      },
-      "hunter_wifi_session_time": {
-        "name": "Час сесії"
-      },
-      "hunter_wifi_total_energy": {
-        "name": "Загальна енергія"
-      },
-      "hunter_wifi_system_time": {
-        "name": "Системний час"
-      },
-      "hunter_wifi_ground_status": {
-        "name": "Заземлення"
-      }
-    },
-    "number": {
-      "hunter_wifi_current_limit": {
-        "name": "Обмеження струму"
-      },
-      "hunter_wifi_voltage_adaptive": {
-        "name": "Напруга адаптації"
-      }
-    },
-    "select": {
-      "time_zone": {
-        "name": "Часова зона"
-      },
-      "refresh_rate": {
-        "name": "Частота оновлення, сек."
-      }
-    },
-    "switch": {
-      "hunter_wifi_control_pe": {
-        "name": "Контроль заземлення"
-      },
-      "hunter_wifi_restricted_mode": {
-        "name": "Режим 16А"
-      },
-      "hunter_wifi_schedule": {
-        "name": "Заряджати за розкладом"
-      },
-      "hunter_wifi_one_charge": {
-        "name": "Один заряд"
-      },
-      "hunter_wifi_adaptive_mode": {
-        "name": "Адаптивний режим"
-      },
-      "hunter_wifi_evse_enabled": {
-        "name": "Увімкнути зарядний пристрій"
-      }
-    },
-    "button": {
-      "hunter_wifi_time_get": {
-        "name": "Синхронізувати час"
-      },
-      "hunter_wifi_start_now": {
-        "name": "Почати зарядку"
-      }
-    },
-    "time": {
-      "hunter_wifi_start_time": {
-        "name": "Час старту"
-      },
-      "hunter_wifi_stop_time": {
-        "name": "Час завершення"
-      }
-    }
-  },
-  "selector": {
-    "device_type": {
-      "options": {
-        "1_phase": "1-фазна станція",
-        "3_phase": "3-фазна станція"
       }
     }
   }

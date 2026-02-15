@@ -1,63 +1,37 @@
-[![SWUbanner](https://raw.githubusercontent.com/vshymanskyy/StandWithUkraine/main/banner-direct-single.svg)](https://stand-with-ukraine.pp.ua/)
+# Hunter WiFi for Home Assistant
 
-![EVSE Charger Logo](./icons/logo.png)
+Local Home Assistant integration for Hunter irrigation controllers that expose the
+Hunter WiFi HTTP API.
 
-# ⚡ EVSE Charger
+## Features
 
-> [!NOTE]
-> This is not affiliated with [EVEUS][eveus] in any way. This integration is developed by an individual. Information may vary from their official website.
+- Config flow fields:
+  - controller IP address
+  - enabled zones (1-8)
+  - enabled programs (1-3)
+- Per-zone duration number entities (minutes), default `5`
+- Stateless action buttons:
+  - start zone
+  - stop zone
+  - start program
+  - stop program
 
-This integration for [Home Assistant][home-assistant] provides ability to control [EVEUS Charger][eveus].
-More info [here][eveus-telegram]
+## HTTP API mapping
 
-## Installation
+- Start zone:
+  - `GET /api/start/zone/{zone}?time={minutes}`
+- Stop zone:
+  - `GET /api/stop/zone/{zone}`
+- Start program:
+  - `GET /api/start/program/{program}`
+- Stop program:
+  - `GET /api/stop/program/{program}`
 
-The quickest way to install this integration is via [HACS][hacs-url] by clicking the button below:
+## Example
 
-[![Add to HACS via My Home Assistant][hacs-install-image]][hasc-install-url]
+See `examples/dashboard.yml` for a simple Lovelace view example.
 
-If it doesn't work, adding this repository to HACS manually by adding this URL:
+## Reference
 
-1. Visit **HACS** → **Integrations** → **...** (in the top right) → **Custom repositories**
-2. Click **Add**
-3. Paste `https://github.com/DmytryS/ha-hunter-wifi` into the **URL** field
-4. Chose **Integration** as a **Category**
-5. **EVSE Charger** will appear in the list of available integrations. Install it normally.
-
-## 🔧 Feature
-
-- Charging station status display
-- Power, voltage, current, temperature sensors
-- Charge current control, start/stop charging
-- Charging scheduling, timers
-- Time synchronization support
-- Full local operation without cloud
-- UI configuration via Config Flow
-- **Energy Star Pro** and **Eveus Pro** support
-
-![Dashboard example](./media/dashboard_example.png)
-
-## License
-
-MIT © [Dmytro Shvaika][DmytryS] + [@V-Plum](https://github.com/V-Plum)
-
-<!-- Badges -->
-
-[gh-release-url]: https://github.com/DmytryS/ha-hunter-wifi/releases/latest
-[gh-release-image]: https://img.shields.io/github/v/release/DmytryS/ha-hunter-wifi?style=flat-square
-[gh-downloads-url]: https://github.com/DmytryS/ha-hunter-wifi/releases
-[gh-downloads-image]: https://img.shields.io/github/downloads/DmytryS/ha-hunter-wifi/total?style=flat-square
-[hacs-url]: https://github.com/hacs/integration
-[hacs-image]: https://img.shields.io/badge/hacs-default-orange.svg?style=flat-square
-[twitter-url]: https://twitter.com/DmytroShvaika
-[twitter-image]: https://img.shields.io/badge/twitter-%40DmytroShvaika-00ACEE.svg?style=flat-square
-
-<!-- References -->
-
-[home-assistant]: https://www.home-assistant.io/
-[DmytryS]: https://github.com/DmytryS
-[hasc-install-url]: https://my.home-assistant.io/redirect/hacs_repository/?owner=DmytryS&repository=ha-hunter-wifi&category=integration
-[hacs-install-image]: https://my.home-assistant.io/badges/hacs_repository.svg
-[add-translation]: https://github.com/DmytryS/ha-hunter-wifi/blob/master/contributing.md#how-to-add-translation
-[eveus-telegram]: https://t.me/Eveus_Chargers
-[eveus]: https://www.eveus.com.ua
+- Hunter WiFi API docs:
+  - https://ecodina.github.io/hunter-wifi/#!pages/api.md
