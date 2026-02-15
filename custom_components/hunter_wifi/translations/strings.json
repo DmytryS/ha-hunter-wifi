@@ -1,0 +1,34 @@
+{
+  "title": "EVSE Charger",
+  "description": "Local integration with the charger via HTTP requests",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Charger Parameters",
+        "description": "Enter IP address and credentials",
+        "data": {
+          "device_name": "Device name",
+          "host": "Charger IP Address",
+          "username": "Username",
+          "password": "Password",
+          "device_type": "Device type"
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Update EVSE",
+        "description": "Update EVSE configuration",
+        "data": {
+          "device_name": "Device name",
+          "host": "Charger IP Address",
+          "username": "Username",
+          "password": "Password",
+          "device_type": "Device type"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "domain": "hunter_wifi",
+  "name": "EVSE Charger",
+  "codeowners": ["@V-Plum", "@DmytryS"],
+  "config_flow": true,
+  "documentation": "https://github.com/DmytryS/ha-hunter-wifi",
+  "iot_class": "local_polling",
+  "issue_tracker": "https://github.com/DmytryS/ha-hunter-wifi",
+  "requirements": [],
+  "version": "0.0.0-unreleased"
+}

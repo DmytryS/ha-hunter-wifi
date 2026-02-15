@@ -1,0 +1,7 @@
+{
+  "name": "Hunter WiFi",
+  "content_in_root": false,
+  "homeassistant": "2023.0.0",
+  "country": "UA",
+  "render_readme": true
+}
