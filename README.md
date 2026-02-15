@@ -27,20 +27,9 @@ If it doesn't work, adding this repository to HACS manually by adding this URL:
   - start program
   - stop program
 
-## HTTP API mapping
+![Example dashboard](./media/dashboard_example.png)
 
-- Start zone:
-  - `GET /api/start/zone/{zone}?time={minutes}`
-- Stop zone:
-  - `GET /api/stop/zone/{zone}`
-- Start program:
-  - `GET /api/start/program/{program}`
-- Stop program:
-  - `GET /api/stop/program/{program}`
-
-## Example
-
-See `examples/dashboard.yml` for a simple Lovelace view example.
+See [example dashboard](./examples/dashboard.yml) for a simple Lovelace view example.
 
 ## Reference
 
